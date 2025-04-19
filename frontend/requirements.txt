@@ -1,0 +1,13 @@
+# Core Requirements
+fastapi>=0.95.2
+gradio>=3.39.0
+httpx>=0.24.1
+python-multipart>=0.0.6
+
+# TTS Engines (Optional - based on config.py selection)
+gTTS>=2.3.2  # For Google TTS
+pyttsx3>=2.90  # For offline TTS
+
+# Development Extras
+#python-dotenv>=1.0.0  # For environment variables
+#uvicorn>=0.22.0  # ASGI server
