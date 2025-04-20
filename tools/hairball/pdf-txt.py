@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
 Enhanced PDF text extraction and cleaning tool with:
-- Improved footnote removal
 - Section header tagging (ABSTRACT/INTRODUCTION/CONCLUSION)
 - Advanced whitespace normalization
 - Hyphenation repair
