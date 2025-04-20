@@ -1,4 +1,7 @@
 import gradio as gr
+import json
+import os
+from datetime import datetime
 from config import (
     DEFAULT_SESSION_PROMPT,
     SESSION_ID_LABEL,
@@ -8,26 +11,45 @@ from config import (
     AUTOPLAY_AUDIO
 )
 from client import api_client
-import os
 
 class ChatUI:
     def __init__(self):
+        self.session_file = "session_cache.json"
         self.setup_ui()
         self.ui.launch()
 
+    def load_session(self):
+        if os.path.exists(self.session_file):
+            try:
+                with open(self.session_file, 'r') as f:
+                    data = json.load(f)
+                    return data.get("history", []), data.get("session_id", "")
+            except:
+                pass
+        return [], ""
+
+    def save_session(self, history, session_id):
+        with open(self.session_file, 'w') as f:
+            json.dump({
+                "history": history,
+                "session_id": session_id,
+                "last_updated": str(datetime.now())
+            }, f)
+
     def setup_ui(self):
-        """Create interface with Darcula theme and full-width chat"""
         with gr.Blocks(title="Kali Chat", css=self._darcula_css()) as self.ui:
-            # Hidden audio element for TTS playback
+            self.history_state = gr.State([])
+            initial_history, initial_session_id = self.load_session()
+
             self.audio_player = gr.Audio(
                 visible=False,
                 autoplay=True,
                 elem_id="tts_player"
             )
 
-            # Chat Display (top)
             with gr.Column(scale=9):
                 self.chat_display = gr.Chatbot(
+                    value=initial_history,
                     elem_id="chatbot",
                     avatar_images=(
                         "assets/user_avatar.png",
@@ -38,7 +60,6 @@ class ChatUI:
                     type="messages"
                 )
 
-            # User Input (bottom)
             with gr.Column(scale=1):
                 with gr.Row():
                     self.user_input = gr.Textbox(
@@ -51,10 +72,10 @@ class ChatUI:
                     )
                     self.submit_btn = gr.Button("Send", variant="primary", elem_id="send_btn")
 
-                # Session Controls
                 with gr.Row(visible=SHOW_SESSION_ID) as self.controls_row:
                     self.session_id = gr.Textbox(
                         label=SESSION_ID_LABEL,
+                        value=initial_session_id,
                         placeholder=DEFAULT_SESSION_PROMPT,
                         scale=9,
                         elem_id="session_id"
@@ -68,23 +89,21 @@ class ChatUI:
                             elem_id="tts_toggle"
                         )
 
-            # Event Handlers
             submit_fn = self.process_message
             self.user_input.submit(
                 submit_fn,
-                inputs=[self.user_input, self.session_id, self.tts_toggle] if ENABLE_TTS 
-                       else [self.user_input, self.session_id],
-                outputs=[self.chat_display, self.user_input, self.session_id, self.audio_player]
+                inputs=[self.user_input, self.session_id, self.tts_toggle, self.history_state] if ENABLE_TTS 
+                       else [self.user_input, self.session_id, self.history_state],
+                outputs=[self.chat_display, self.user_input, self.session_id, self.audio_player, self.history_state]
             )
             self.submit_btn.click(
                 submit_fn,
-                inputs=[self.user_input, self.session_id, self.tts_toggle] if ENABLE_TTS 
-                       else [self.user_input, self.session_id],
-                outputs=[self.chat_display, self.user_input, self.session_id, self.audio_player]
+                inputs=[self.user_input, self.session_id, self.tts_toggle, self.history_state] if ENABLE_TTS 
+                       else [self.user_input, self.session_id, self.history_state],
+                outputs=[self.chat_display, self.user_input, self.session_id, self.audio_player, self.history_state]
             )
 
     def _darcula_css(self):
-        """Hardcoded Darcula theme with full-width layout"""
         return """
         :root {
             --bg-color: #2b2b2b;
@@ -162,15 +181,12 @@ class ChatUI:
         }
         """
 
-    async def process_message(self, message: str, session_id: str, tts_enabled: bool = False):
-        """Handle message submission"""
+    async def process_message(self, message: str, session_id: str, tts_enabled: bool = False, history: list = None):
         if not message.strip():
-            return gr.update(), gr.update(), gr.update(), gr.update()
+            return gr.update(), gr.update(), gr.update(), gr.update(), gr.update()
 
-        # Send to LLM API
         response = await api_client.send_to_llm(message, session_id or None)
 
-        # Prepare audio update
         audio_update = gr.update(value=None)
         if ENABLE_TTS and tts_enabled and response.get("audio"):
             audio_update = gr.update(
@@ -179,17 +195,19 @@ class ChatUI:
                 visible=False
             )
 
-        # Update chat history
-        chat_update = [
+        updated_history = history + [
             {"role": "user", "content": message},
             {"role": "assistant", "content": response["text"]}
         ]
 
+        self.save_session(updated_history, response["session_id"])
+
         return (
-            gr.update(value=chat_update),
+            gr.update(value=updated_history),
             gr.update(value=""),
             gr.update(value=response["session_id"]),
-            audio_update
+            audio_update,
+            updated_history
         )
 
 if __name__ == "__main__":
