@@ -154,7 +154,10 @@ class ChatDatabase:
                 WHERE session_id = ? ORDER BY timestamp DESC LIMIT ?""",
                 (session_id, limit)
             ).fetchall()
-            
+
+            if not rows:
+                return []
+
             messages = []
             for row in rows:
                 try:

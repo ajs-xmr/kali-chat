@@ -109,7 +109,7 @@ class ChatService:
         """
         try:
             # 1. Fetch messages from DB (preserves original functionality)
-            db_messages = self.db.get_messages(session_id, self.max_context_length)
+            db_messages = self.db.get_messages(session_id, self.max_context_length) or []
             
             # 2. Convert to dict format (exclude None timestamps)
             messages = [

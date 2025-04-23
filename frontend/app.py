@@ -195,7 +195,7 @@ class ChatUI:
                 visible=False
             )
 
-        updated_history = history + [
+        updated_history = (history or []) + [
             {"role": "user", "content": message},
             {"role": "assistant", "content": response["text"]}
         ]
