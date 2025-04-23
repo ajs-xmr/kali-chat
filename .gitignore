@@ -4,6 +4,7 @@ frontend/tmp_audio/
 tools/hairball/chroma_db/
 tools/hairball/cleaned_texts/
 frontend/session_cache.json
+.secrets/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
